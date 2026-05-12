@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGS — Painel Pivô</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary:  #2e7d32; --secondary:#00695c; --accent:#2196F3;
+            --success:  #4CAF50; --warning:#FFC107;   --danger:#F44336;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+        body { background:linear-gradient(135deg,#fdbb2d,#1e3a8a,#1a2a6c); color:white; min-height:100vh; padding:20px; }
+        .container { max-width:1400px; margin:0 auto; background:rgba(0,0,0,0.7); border-radius:15px; padding:25px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+
+        /* ── HEADER ── */
+        .header-row { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
+        header { flex:1; padding-bottom:18px; border-bottom:2px solid var(--accent); }
+        h1 { font-size:2rem; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+        .eq-location-badge { display:none; font-size:.9rem; font-weight:500; color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); border-radius:8px; padding:4px 12px; }
+        .back-btn { display:inline-flex; align-items:center; gap:9px; padding:11px 22px; background:#2196F3; border:none; border-radius:8px; color:white; text-decoration:none; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .25s; white-space:nowrap; margin-top:4px; box-shadow:0 3px 10px rgba(33,150,243,0.4); }
+        .back-btn:hover { background:#1976D2; transform:translateY(-2px); }
+
+        .status-bar { display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:11px 16px; border-radius:10px; margin-top:18px; flex-wrap:wrap; gap:6px; }
+        .status-item { display:flex; align-items:center; margin:3px 12px; }
+        .status-indicator { width:13px; height:13px; border-radius:50%; margin-right:8px; transition:all .3s; }
+        .connected    { background:var(--success); box-shadow:0 0 8px var(--success); animation:pulse 2s infinite; }
+        .disconnected { background:var(--danger); }
+        .connecting   { background:var(--warning); animation:blink 1.5s infinite; }
+
+        @keyframes pulse    { 0%{box-shadow:0 0 0 0 rgba(76,175,80,.7)} 70%{box-shadow:0 0 0 8px rgba(76,175,80,0)} 100%{box-shadow:0 0 0 0 rgba(76,175,80,0)} }
+        @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:.5} }
+        @keyframes slideDown{ from{transform:translateY(-14px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+
+        .error-alert, .success-alert { padding:12px 16px; border-radius:7px; margin:12px 0 4px; display:none; animation:slideDown .3s ease; }
+        .error-alert   { background:rgba(244,67,54,.2);  border:1px solid var(--danger);  color:#ffcdd2; }
+        .success-alert { background:rgba(76,175,80,.2);  border:1px solid var(--success); color:#c8e6c9; }
+
+        /* ── TABS ── */
+        .tab-nav { display:flex; background:rgba(0,0,0,0.4); border-radius:10px 10px 0 0; overflow:hidden; flex-wrap:wrap; margin-top:22px; }
+        .tab-btn { flex:1; min-width:120px; padding:13px 16px; background:rgba(255,255,255,0.08); border:none; color:white; cursor:pointer; transition:all .3s; font-size:.9rem; display:flex; align-items:center; justify-content:center; gap:7px; }
+        .tab-btn.active { background:var(--primary); }
+        .tab-btn:hover  { background:var(--secondary); }
+        .tab-content { display:none; background:rgba(30,30,50,0.8); border-radius:0 0 10px 10px; padding:20px; }
+        .tab-content.active { display:block; }
+
+        /* ── CARDS ── */
+        .dashboard { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
+        .card { background:rgba(30,30,50,0.85); border-radius:10px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.3); display:flex; flex-direction:column; }
+        .card-full { grid-column:1/-1; }
+
+        h2 { color:var(--accent); margin-bottom:14px; font-size:1.2rem; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px; display:flex; align-items:center; gap:9px; }
+
+        .status-value { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; padding-bottom:6px; border-bottom:1px dashed rgba(255,255,255,0.12); }
+        .status-label { font-weight:600; font-size:.88rem; color:rgba(255,255,255,0.75); }
+        .status-data  { color:var(--accent); font-weight:600; font-size:.88rem; text-align:right; }
+
+        /* ── BUTTONS ── */
+        button { width:100%; padding:11px 12px; border:none; border-radius:6px; background:var(--primary); color:white; font-weight:bold; cursor:pointer; transition:all .25s; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:7px; font-size:.9rem; }
+        button:disabled { opacity:.45; cursor:not-allowed; transform:none !important; }
+        button:hover:not(:disabled) { background:var(--secondary); transform:translateY(-2px); }
+        .btn-danger  { background:var(--danger);  } .btn-danger:hover:not(:disabled)  { background:#d32f2f; }
+        .btn-success { background:var(--success); } .btn-success:hover:not(:disabled) { background:#388E3C; }
+        .btn-warning { background:var(--warning); color:#1a1a1a; } .btn-warning:hover:not(:disabled) { background:#FFA000; }
+        .btn-info    { background:var(--accent);  } .btn-info:hover:not(:disabled)    { background:#1976D2; }
+
+        .control-buttons { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+        .control-buttons button { margin-top:0; }
+
+        .form-group { margin-bottom:12px; }
+        label { display:block; margin-bottom:4px; font-size:.82rem; font-weight:600; color:rgba(255,255,255,0.65); }
+        input, select { width:100%; padding:10px 12px; border:1px solid rgba(255,255,255,0.16); border-radius:7px; background:rgba(0,0,0,0.35); color:white; font-size:.9rem; }
+        input::placeholder { color:rgba(255,255,255,0.4); }
+        input:focus, select:focus { outline:none; border-color:var(--accent); }
+        select option { background:#1a2a6c; }
+
+        /* Switch */
+        .switch-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+        .switch { position:relative; display:inline-block; width:50px; height:27px; flex-shrink:0; }
+        .switch input { opacity:0; width:0; height:0; position:absolute; }
+        .slider { position:absolute; inset:0; background:rgba(255,255,255,0.12); border-radius:27px; cursor:pointer; transition:.3s; border:1px solid rgba(255,255,255,0.18); }
+        .slider::before { content:''; position:absolute; height:19px; width:19px; left:4px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+        .switch input:checked + .slider { background:rgba(76,175,80,0.45); border-color:var(--success); }
+        .switch input:checked + .slider::before { transform:translateX(22px); background:var(--success); }
+        .switch-label { font-weight:600; font-size:.9rem; }
+
+        /* Map */
+        .map-container { height:380px; width:100%; border-radius:10px; overflow:hidden; margin-top:12px; }
+        #leaflet-map { height:100%; width:100%; }
+
+        /* ── MODAL ── */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:9000; justify-content:center; align-items:center; animation:fadeIn .2s; }
+        .modal-overlay.active { display:flex; }
+        .modal-content { background:linear-gradient(135deg,#1a2a6c,#2e7d32); border-radius:14px; padding:28px; max-width:480px; width:92%; border:2px solid var(--accent); box-shadow:0 20px 60px rgba(0,0,0,0.5); animation:slideDown .3s ease; }
+        .modal-header { display:flex; align-items:center; gap:13px; margin-bottom:16px; padding-bottom:13px; border-bottom:2px solid rgba(255,255,255,0.2); }
+        .modal-icon   { font-size:2rem; color:var(--warning); }
+        .modal-title  { font-size:1.2rem; font-weight:bold; }
+        .modal-message{ font-size:.95rem; margin-bottom:13px; line-height:1.6; }
+        .modal-details{ background:rgba(0,0,0,0.3); padding:13px; border-radius:7px; border-left:4px solid var(--accent); margin-bottom:18px; }
+        .modal-detail-item { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(255,255,255,0.15); }
+        .modal-detail-item:last-child { border-bottom:none; }
+        .modal-detail-label { font-weight:600; font-size:.83rem; }
+        .modal-detail-value { color:var(--accent); font-weight:bold; font-size:.83rem; text-align:right; max-width:60%; word-break:break-all; }
+        .modal-footer { display:flex; gap:12px; justify-content:flex-end; }
+        .modal-btn { padding:10px 24px; border:none; border-radius:7px; font-size:.88rem; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; min-width:100px; justify-content:center; transition:all .2s; width:auto; margin-top:0; }
+        .modal-btn-cancel  { background:rgba(255,255,255,0.18); color:white; } .modal-btn-cancel:hover { background:rgba(255,255,255,0.28); transform:translateY(-2px); }
+        .modal-btn-confirm { background:var(--success); color:white; }           .modal-btn-confirm:hover { background:#388E3C; transform:translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<!-- Modal de confirmação -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <i class="fas fa-question-circle modal-icon"></i>
+            <h3 class="modal-title">Confirmar Comando</h3>
+        </div>
+        <div class="modal-body">
+            <p class="modal-message" id="modalMessage"></p>
+            <div class="modal-details" id="modalDetails"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" id="modalCancel"><i class="fas fa-times"></i> Cancelar</button>
+            <button class="modal-btn modal-btn-confirm" id="modalConfirm"><i class="fas fa-check"></i> Enviar</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="header-row">
+        <header>
+            <h1>
+                <i class="fas fa-sync-alt"></i>
+                <span id="eq-name">Carregando...</span>
+                <span class="eq-location-badge" id="eq-location-badge"></span>
+            </h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator connecting" id="mqtt-status"></div>
+                    <span id="mqtt-text">Conectando ao Broker...</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator disconnected" id="device-status"></div>
+                    <span id="device-text">Dispositivo Offline</span>
+                </div>
+            </div>
+        </header>
+        <a href="/operador" class="back-btn"><i class="fas fa-list"></i> Lista</a>
+    </div>
+
+    <div class="error-alert"   id="error-alert"><strong>Erro:</strong> <span id="error-message"></span></div>
+    <div class="success-alert" id="success-alert"><strong>Sucesso:</strong> <span id="success-message"></span></div>
+
+    <!-- TABS -->
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="principal"><i class="fas fa-home"></i> Principal</button>
+        <button class="tab-btn" data-tab="controle"><i class="fas fa-cogs"></i> Controle</button>
+        <button class="tab-btn" data-tab="programacao"><i class="fas fa-clock"></i> Programação</button>
+        <button class="tab-btn" data-tab="config"><i class="fas fa-wrench"></i> Configurações</button>
+        <button class="tab-btn" data-tab="mapa"><i class="fas fa-map"></i> Mapa</button>
+    </div>
+
+    <!-- ===== ABA PRINCIPAL ===== -->
+    <div class="tab-content active" id="principal">
+        <div class="dashboard">
+
+            <!-- Status -->
+            <div class="card">
+                <h2><i class="fas fa-chart-bar"></i> Status do Sistema</h2>
+                <div class="status-value"><span class="status-label">Equipamento:</span><span class="status-data" id="st-nome">---</span></div>
+                <div class="status-value"><span class="status-label">Status:</span><span class="status-data" id="st-status">DESCONHECIDO</span></div>
+                <div class="status-value"><span class="status-label">Direção:</span><span class="status-data" id="st-direcao">N/A</span></div>
+                <div class="status-value"><span class="status-label">Percentímetro:</span><span class="status-data" id="st-pct">---</span></div>
+                <div class="status-value"><span class="status-label">Água:</span><span class="status-data" id="st-agua">---</span></div>
+                <div class="status-value"><span class="status-label">Pressão:</span><span class="status-data" id="st-pressao">---</span></div>
+                <div class="status-value"><span class="status-label">Lâmina:</span><span class="status-data" id="st-lamina">---</span></div>
+                <div class="status-value"><span class="status-label">Posição:</span><span class="status-data" id="st-posicao">---</span></div>
+                <div class="status-value"><span class="status-label">Carreador:</span><span class="status-data" id="st-carreador">---</span></div>
+                <div class="status-value"><span class="status-label">Última Torre:</span><span class="status-data" id="st-rele">---</span></div>
+                <div class="status-value"><span class="status-label">Tempo de Volta:</span><span class="status-data" id="st-tempo-volta">---</span></div>
+                <div class="status-value"><span class="status-label">GPS Sincronizado:</span><span class="status-data" id="st-gps">---</span></div>
+                <div class="status-value"><span class="status-label">Última Atualização:</span><span class="status-data" id="st-ts">--/--/---- --:--:--</span></div>
+            </div>
+
+            <!-- Controle rápido -->
+            <div class="card">
+                <h2><i class="fas fa-sliders-h"></i> Controle Rápido</h2>
+                <div class="control-buttons">
+                    <button class="btn-success" id="btn-iniciar"  disabled><i class="fas fa-play"></i>  Iniciar</button>
+                    <button class="btn-danger"  id="btn-parar"    disabled><i class="fas fa-stop"></i>  Parar</button>
+                    <button class="btn-warning" id="btn-avanco"   disabled><i class="fas fa-rotate-right"></i> Avanço</button>
+                    <button class="btn-warning" id="btn-reversao" disabled><i class="fas fa-rotate-left"></i>  Reversão</button>
+                </div>
+                <button class="btn-info" id="btn-agua" disabled><i class="fas fa-tint"></i> Água</button>
+
+                <div class="form-group" style="margin-top:16px">
+                    <label for="input-pct">Percentímetro (0-100)%</label>
+                    <input type="number" id="input-pct" min="0" max="100" step="0.1" placeholder="Ex: 75">
+                    <button class="btn-info" id="btn-set-pct" disabled><i class="fas fa-percentage"></i> Definir Percentímetro</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="input-lamina">Lâmina de Água (mm)</label>
+                    <input type="number" id="input-lamina" step="0.1" min="0" placeholder="Ex: 10.5">
+                    <button class="btn-info" id="btn-set-lamina" disabled><i class="fas fa-ruler"></i> Definir Lâmina</button>
+                </div>
+            </div>
+
+            <!-- SIS -->
+            <div class="card">
+                <h2><i class="fas fa-bullseye"></i> Controle por Grau (SIS)</h2>
+                <div class="switch-row">
+                    <label class="switch"><input type="checkbox" id="sis-toggle"><span class="slider"></span></label>
+                    <span class="switch-label">Ativar SIS</span>
+                    <span id="sis-text" style="color:rgba(255,255,255,0.5);font-size:.85rem">Desativado</span>
+                </div>
+                <div class="status-value"><span class="status-label">Parada em SIS:</span><span class="status-data" id="st-sis-parada">DESATIVADA</span></div>
+                <div class="status-value"><span class="status-label">Grau Programado:</span><span class="status-data" id="st-sis-grau">0°</span></div>
+                <div class="status-value"><span class="status-label">Parado por Grau:</span><span class="status-data" id="st-sis-parado">NÃO</span></div>
+                <div class="status-value"><span class="status-label">Tempo restante até SIS:</span><span class="status-data" id="st-sis-tempo">---</span></div>
+                <div class="status-value"><span class="status-label">LoRa:</span><span class="status-data" id="st-lora">---</span></div>
+                <div class="form-group" style="margin-top:12px">
+                    <label for="input-grau">Grau Alvo (0–359.9)</label>
+                    <input type="number" id="input-grau" min="0" max="359.9" step="0.1" placeholder="Ex: 180.0">
+                    <button class="btn-info" id="btn-set-grau" disabled><i class="fas fa-bullseye"></i> Definir Grau</button>
+                </div>
+            </div>
+
+            <!-- Status Programação -->
+            <div class="card">
+                <h2><i class="fas fa-calendar-alt"></i> Programação (Ponta)</h2>
+                <div class="status-value"><span class="status-label">Programação Ativa:</span><span class="status-data" id="st-prog-ativa">---</span></div>
+                <div class="status-value"><span class="status-label">Horário:</span><span class="status-data" id="st-prog-horario">--:-- às --:--</span></div>
+                <div class="status-value"><span class="status-label">Dias:</span><span class="status-data" id="st-prog-dias">Nenhum</span></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== ABA CONTROLE ===== -->
+    <div class="tab-content" id="controle">
+        <div class="dashboard">
+            <div class="card">
+                <h2><i class="fas fa-cogs"></i> Controle Completo</h2>
+                <div class="control-buttons">
+                    <button class="btn-success" id="btn2-iniciar"  disabled><i class="fas fa-play"></i>  Iniciar</button>
+                    <button class="btn-danger"  id="btn2-parar"    disabled><i class="fas fa-stop"></i>  Parar</button>
+                    <button class="btn-warning" id="btn2-avanco"   disabled><i class="fas fa-rotate-right"></i> Avanço</button>
+                    <button class="btn-warning" id="btn2-reversao" disabled><i class="fas fa-rotate-left"></i>  Reversão</button>
+                </div>
+                <button class="btn-info" id="btn2-agua" disabled><i class="fas fa-tint"></i> Água</button>
+
+                <div class="form-group" style="margin-top:16px">
+                    <label for="input2-pct">Percentímetro (0-100)%</label>
+                    <input type="number" id="input2-pct" min="0" max="100" step="0.1" placeholder="Ex: 75">
+                    <button class="btn-info" id="btn2-set-pct" disabled><i class="fas fa-percentage"></i> Definir Percentímetro</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="input2-lamina">Lâmina de Água (mm)</label>
+                    <input type="number" id="input2-lamina" step="0.1" min="0" placeholder="Ex: 10.5">
+                    <button class="btn-info" id="btn2-set-lamina" disabled><i class="fas fa-ruler"></i> Definir Lâmina</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-bullseye"></i> SIS — Parada por Grau</h2>
+                <div class="switch-row">
+                    <label class="switch"><input type="checkbox" id="sis2-toggle"><span class="slider"></span></label>
+                    <span class="switch-label">Ativar SIS</span>
+                    <span id="sis2-text" style="color:rgba(255,255,255,0.5);font-size:.85rem">Desativado</span>
+                </div>
+                <div class="form-group">
+                    <label for="input2-grau">Grau Alvo (0–359.9)</label>
+                    <input type="number" id="input2-grau" min="0" max="359.9" step="0.1" placeholder="Ex: 180.0">
+                    <button class="btn-info" id="btn2-set-grau" disabled><i class="fas fa-bullseye"></i> Definir Grau</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ABA PROGRAMAÇÃO ===== -->
+    <div class="tab-content" id="programacao">
+        <div class="card card-full">
+            <h2><i class="fas fa-clock"></i> Programação de Horário de Ponta</h2>
+
+            <div class="switch-row" style="margin-bottom:16px">
+                <label class="switch"><input type="checkbox" id="sched-toggle"><span class="slider"></span></label>
+                <span class="switch-label">Ativar Programação</span>
+                <span id="sched-text" style="color:rgba(255,255,255,0.5);font-size:.85rem">Desativado</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+                <div class="form-group" style="margin:0">
+                    <label>Iniciar às:</label>
+                    <input type="time" id="sched-start" value="08:00">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>Parar às:</label>
+                    <input type="time" id="sched-end" value="17:00">
+                </div>
+            </div>
+
+            <div style="margin-bottom:16px">
+                <label style="display:block;margin-bottom:10px">Dias da Semana:</label>
+                <div id="days-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
+            </div>
+
+            <button class="btn-success" id="btn-send-sched" disabled style="max-width:320px">
+                <i class="fas fa-paper-plane"></i> Enviar Programação
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== ABA CONFIGURAÇÕES ===== -->
+    <div class="tab-content" id="config">
+        <div class="dashboard">
+            <div class="card card-full">
+                <h2><i class="fas fa-wrench"></i> Configurações do Sistema</h2>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+                    <div class="form-group">
+                        <label>Nome do Equipamento</label>
+                        <input type="text" id="cfg-nome" placeholder="Ex: Pivô 16">
+                    </div>
+                    <div class="form-group">
+                        <label>Carreador (0-359)</label>
+                        <input type="number" id="cfg-carreador" min="0" max="359" placeholder="Ex: 45">
+                    </div>
+                    <div class="form-group">
+                        <label>Tempo de Pressão (seg)</label>
+                        <input type="number" id="cfg-pressao-timeout" min="10" max="3600" placeholder="Ex: 120">
+                    </div>
+                    <div class="form-group">
+                        <label>Raio do Pivô (metros)</label>
+                        <input type="number" id="cfg-raio" step="0.01" min="10" max="2000" placeholder="Ex: 500">
+                    </div>
+                    <div class="form-group">
+                        <label>Vazão (m³/h)</label>
+                        <input type="number" id="cfg-vazao" step="0.01" min="1" max="1000" placeholder="Ex: 150">
+                    </div>
+                    <div class="form-group">
+                        <label>Tempo de Volta 100% (horas)</label>
+                        <input type="number" id="cfg-tempo-volta" step="0.01" min="1" max="168" placeholder="Ex: 72">
+                    </div>
+                </div>
+                <button class="btn-success" id="btn-send-config" disabled style="max-width:320px;margin-top:16px">
+                    <i class="fas fa-paper-plane"></i> Enviar Configurações
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ABA MAPA ===== -->
+    <div class="tab-content" id="mapa">
+        <div class="card card-full">
+            <h2><i class="fas fa-map"></i> Localização do Pivô</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
+                <div class="form-group" style="margin:0">
+                    <label>Latitude</label>
+                    <input type="number" id="map-lat" step="0.000001" value="-19.351680" placeholder="-19.351680">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>Longitude</label>
+                    <input type="number" id="map-lon" step="0.000001" value="-47.374460" placeholder="-47.374460">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>Raio (metros)</label>
+                    <input type="number" id="map-raio" value="500" min="10" max="2000">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>GPS Latitude (recebido)</label>
+                    <input type="text" id="map-gps-lat" readonly placeholder="Aguardando GPS...">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>GPS Longitude (recebido)</label>
+                    <input type="text" id="map-gps-lon" readonly placeholder="Aguardando GPS...">
+                </div>
+            </div>
+            <button class="btn-info" id="btn-update-map" style="max-width:260px;margin-bottom:12px">
+                <i class="fas fa-map-marker-alt"></i> Atualizar Mapa
+            </button>
+            <div class="map-container">
+                <div id="leaflet-map"></div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /container -->
+
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+
+    // ── 1. CARREGAR EQUIPAMENTO DA API ────────────────────
+    const params = new URLSearchParams(window.location.search);
+    const eqId   = params.get('id');
+    if (!eqId) { document.getElementById('eq-name').textContent = 'Equipamento não especificado'; return; }
+
+    let EQ = null;
+    try {
+        const r   = await fetch('/api/equipments');
+        const list = await r.json();
+        EQ = list.find(e => e.id === eqId);
+    } catch(_) {}
+
+    if (!EQ) { document.getElementById('eq-name').textContent = 'Pivô não encontrado'; return; }
+
+    document.title = `AGS — ${EQ.name}`;
+    document.getElementById('eq-name').textContent = EQ.name;
+    if (EQ.location) {
+        const badge = document.getElementById('eq-location-badge');
+        badge.textContent = EQ.location;
+        badge.style.display = 'inline';
+    }
+
+    // ── 2. TÓPICOS ────────────────────────────────────────
+    const T = {
+        COMMAND: EQ.topic_command,
+        STATUS:  EQ.topic_status,
+        ONLINE:  EQ.topic_online,
+        CONFIG:  EQ.topic_config,
+    };
+
+    // ── 3. ESTADO LOCAL ───────────────────────────────────
+    const ONLINE_TIMEOUT = 15000;
+    let mqttClient  = null;
+    let mqttOk      = false;
+    let devOk       = false;
+    let lastMsg     = 0;
+    let waterState  = false;
+    let sisEnabled  = false;
+    let schedEnabled= false;
+    let currentCarrier = 0;
+    let currentTargetDegree = 0;
+    let pendingCb   = null;
+    let lastSchedMask = 0;
+    let editingFields = new Set();
+
+    // Mapa
+    let leafletMap     = null;
+    let mapMarker      = null;
+    let pivotCircle    = null;
+    let positionLine   = null;
+    let positionMarker = null;
+    let carrierLine    = null;
+    let sisLine        = null;
+    let currentStatus  = 'PARADO';
+
+    const $ = id => document.getElementById(id);
+
+    // ── ALERTS ───────────────────────────────────────────
+    function showErr(msg) {
+        $('error-message').textContent = msg;
+        $('error-alert').style.display = 'block';
+        $('success-alert').style.display = 'none';
+        clearTimeout(showErr._t);
+        showErr._t = setTimeout(() => $('error-alert').style.display = 'none', 5000);
+    }
+    function showOk(msg) {
+        $('success-message').textContent = msg;
+        $('success-alert').style.display = 'block';
+        $('error-alert').style.display = 'none';
+        clearTimeout(showOk._t);
+        showOk._t = setTimeout(() => $('success-alert').style.display = 'none', 3500);
+    }
+
+    // ── DEVICE STATUS ────────────────────────────────────
+    function setMqttStatus(ok) {
+        mqttOk = ok;
+        $('mqtt-status').className = 'status-indicator ' + (ok ? 'connected' : 'connecting');
+        $('mqtt-text').textContent  = ok ? 'Broker MQTT Online' : 'Conectando ao Broker...';
+        updateButtons();
+    }
+    function setDevStatus(online) {
+        devOk = online;
+        $('device-status').className = 'status-indicator ' + (online ? 'connected' : 'disconnected');
+        $('device-text').textContent  = online ? 'Dispositivo Online' : 'Dispositivo Offline';
+        if (online) showOk('Dispositivo conectado!');
+        updateButtons();
+    }
+
+    const ALL_BTNS = [
+        'btn-iniciar','btn-parar','btn-avanco','btn-reversao','btn-agua',
+        'btn-set-pct','btn-set-lamina','btn-set-grau',
+        'btn2-iniciar','btn2-parar','btn2-avanco','btn2-reversao','btn2-agua',
+        'btn2-set-pct','btn2-set-lamina','btn2-set-grau',
+        'btn-send-sched','btn-send-config'
+    ];
+    function updateButtons() {
+        const en = mqttOk && devOk;
+        ALL_BTNS.forEach(id => { const el = $(id); if (el) el.disabled = !en; });
+    }
+
+    // Timer de timeout do dispositivo
+    setInterval(() => {
+        if (mqttOk && lastMsg > 0 && Date.now() - lastMsg > ONLINE_TIMEOUT && devOk) {
+            setDevStatus(false);
+        }
+    }, 5000);
+
+    // ── MODAL ────────────────────────────────────────────
+    function openModal(message, details, onConfirm) {
+        $('modalMessage').textContent = message;
+        let html = '';
+        Object.entries(details).forEach(([k,v]) => {
+            html += `<div class="modal-detail-item"><span class="modal-detail-label">${k}:</span><span class="modal-detail-value">${v}</span></div>`;
+        });
+        $('modalDetails').innerHTML = html;
+        $('confirmModal').classList.add('active');
+        pendingCb = onConfirm;
+    }
+    function closeModal(confirmed) {
+        $('confirmModal').classList.remove('active');
+        if (confirmed && typeof pendingCb === 'function') pendingCb();
+        else if (!confirmed) showOk('Comando cancelado.');
+        pendingCb = null;
+    }
+    $('modalCancel').onclick  = () => closeModal(false);
+    $('modalConfirm').onclick = () => closeModal(true);
+    $('confirmModal').onclick = e => { if (e.target === $('confirmModal')) closeModal(false); };
+
+    // ── PUBLISH ──────────────────────────────────────────
+    function publish(topic, msg) {
+        if (!mqttClient || !mqttOk) { showErr('MQTT não conectado'); return; }
+        mqttClient.publish(topic, msg, { qos:1 }, err => {
+            if (err) showErr('Falha ao enviar: ' + err.message);
+        });
+    }
+
+    // ── TABS ─────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tab = this.getAttribute('data-tab');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            $(tab).classList.add('active');
+            if (tab === 'mapa' && !leafletMap) setTimeout(initMap, 100);
+        });
+    });
+
+    // ── DIAS DA SEMANA (PROGRAMAÇÃO) ─────────────────────
+    const DAY_NAMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    function buildDaysGrid(mask) {
+        const grid = $('days-grid');
+        grid.innerHTML = '';
+        for (let i = 0; i < 7; i++) {
+            const sel = (mask & (1 << i)) !== 0;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.cssText = `margin:0;padding:10px 3px 8px;background:${sel?'rgba(33,150,243,0.25)':'rgba(0,0,0,0.3)'};border:1px solid ${sel?'#2196F3':'rgba(255,255,255,0.15)'};border-radius:7px;cursor:pointer;font-size:.75rem;color:${sel?'#2196F3':'rgba(255,255,255,0.5)'};font-weight:700;flex-direction:column;gap:4px;transition:all .2s;`;
+            btn.dataset.day = i;
+            btn.innerHTML = DAY_NAMES[i];
+            if (sel) btn.dataset.selected = '1';
+            btn.addEventListener('click', () => {
+                if (btn.dataset.selected) {
+                    delete btn.dataset.selected;
+                    btn.style.background = 'rgba(0,0,0,0.3)';
+                    btn.style.borderColor = 'rgba(255,255,255,0.15)';
+                    btn.style.color = 'rgba(255,255,255,0.5)';
+                } else {
+                    btn.dataset.selected = '1';
+                    btn.style.background = 'rgba(33,150,243,0.25)';
+                    btn.style.borderColor = '#2196F3';
+                    btn.style.color = '#2196F3';
+                }
+            });
+            grid.appendChild(btn);
+        }
+    }
+    function getDaysMask() {
+        let mask = 0;
+        $('days-grid').querySelectorAll('button').forEach((btn, i) => {
+            if (btn.dataset.selected) mask |= (1 << i);
+        });
+        return mask;
+    }
+    function maskToDayNames(mask) {
+        if (!mask) return 'Nenhum';
+        const m = parseInt(mask), d = [];
+        for (let i = 0; i < 7; i++) if (m & (1 << i)) d.push(DAY_NAMES[i]);
+        return d.join(' · ');
+    }
+    buildDaysGrid(0);
+
+    // ── MAPA ─────────────────────────────────────────────
+    function initMap() {
+        if (typeof L === 'undefined') return;
+        const lat = parseFloat($('map-lat').value) || -19.351680;
+        const lon = parseFloat($('map-lon').value) || -47.374460;
+        leafletMap = L.map('leaflet-map').setView([lat, lon], 15);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { attribution:'Tiles © Esri', maxZoom:19 }).addTo(leafletMap);
+        mapMarker = L.marker([lat, lon], {
+            icon: L.divIcon({
+                className:'', iconSize:[16,16], iconAnchor:[8,8],
+                html:'<div style="background:#000;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 5px rgba(0,0,0,0.5)"></div>'
+            })
+        }).addTo(leafletMap).bindPopup(EQ.name).openPopup();
+        drawPivotOnMap();
+    }
+
+    function getPivotColor() {
+        const s = currentStatus.toUpperCase();
+        if (s.includes('RODANDO COM')) return '#2196F3';
+        if (s.includes('RODANDO'))     return '#4CAF50';
+        if (s.includes('SEGURANÇA'))   return '#FF9800';
+        return '#9E9E9E';
+    }
+
+    function drawPivotOnMap() {
+        if (!leafletMap) return;
+        const lat    = parseFloat($('map-lat').value);
+        const lon    = parseFloat($('map-lon').value);
+        const radius = parseFloat($('map-raio').value) || 500;
+        const posEl  = $('st-posicao');
+        const posText = posEl ? posEl.textContent.replace('°','') : '0';
+        const pos = parseFloat(posText) || 0;
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        [pivotCircle, positionLine, positionMarker, carrierLine, sisLine].forEach(l => { if (l && leafletMap.hasLayer(l)) leafletMap.removeLayer(l); });
+
+        const color = getPivotColor();
+        pivotCircle = L.circle([lat, lon], { color, fillColor:color, fillOpacity:0.8, radius, weight:2 }).addTo(leafletMap);
+
+        const angleRad = (pos * Math.PI) / 180;
+        const endLat = lat + (radius / 111320) * Math.cos(angleRad);
+        const endLon = lon + (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angleRad);
+        positionLine = L.polyline([[lat,lon],[endLat,endLon]], { color:'#000', weight:3, opacity:.9 }).addTo(leafletMap);
+        positionMarker = L.marker([endLat, endLon], {
+            icon: L.divIcon({ className:'', iconSize:[20,20], iconAnchor:[10,10], html:'<div style="background:#000;width:14px;height:14px;border-radius:50%;border:3px solid #fff;"></div>' })
+        }).addTo(leafletMap).bindPopup(`Posição: ${pos}°`);
+
+        // Linha do carreador
+        if (!isNaN(currentCarrier)) {
+            const cRad = (currentCarrier * Math.PI) / 180;
+            const cLat = lat + (radius / 111320) * Math.cos(cRad);
+            const cLon = lon + (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(cRad);
+            carrierLine = L.polyline([[lat,lon],[cLat,cLon]], { color:'#FFF', weight:3, dashArray:'10,10' }).addTo(leafletMap).bindPopup(`Carreador: ${currentCarrier}°`);
+        }
+
+        // Linha do SIS
+        if (sisEnabled && !isNaN(currentTargetDegree)) {
+            const sRad = (currentTargetDegree * Math.PI) / 180;
+            const sLat = lat + (radius / 111320) * Math.cos(sRad);
+            const sLon = lon + (radius / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(sRad);
+            sisLine = L.polyline([[lat,lon],[sLat,sLon]], { color:'#F00', weight:3 }).addTo(leafletMap).bindPopup(`SIS: ${currentTargetDegree}°`);
+        }
+    }
+
+    $('btn-update-map').onclick = () => { if (leafletMap && mapMarker) { const lat = parseFloat($('map-lat').value), lon = parseFloat($('map-lon').value); mapMarker.setLatLng([lat,lon]); leafletMap.setView([lat,lon],15); drawPivotOnMap(); showOk('Mapa atualizado!'); } };
+
+    // ── UPDATE STATUS DISPLAY ─────────────────────────────
+    function updateStatusDisplay(data) {
+        lastMsg = Date.now();
+        if (!devOk) setDevStatus(true);
+
+        const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+
+        if (data.Nome_do_equipamento) set('st-nome', data.Nome_do_equipamento);
+        if (data.Status) {
+            currentStatus = (data.Status || '').toUpperCase();
+            set('st-status', data.Status);
+        }
+        if (data.Direcao)    set('st-direcao', data.Direcao);
+        if (data.Percentimetro != null) set('st-pct', data.Percentimetro + '%');
+        if (data.Agua) {
+            set('st-agua', data.Agua);
+            waterState = (data.Agua || '').toUpperCase() === 'LIGADA';
+            const btnAgua = $('btn-agua');
+            const btn2Agua = $('btn2-agua');
+            if (btnAgua)  btnAgua.innerHTML  = waterState ? '<i class="fas fa-tint"></i> Água (Ligar/Desligar)' : '<i class="fas fa-tint-slash"></i> Água (Ligar/Desligar)';
+            if (btn2Agua) btn2Agua.innerHTML = btnAgua ? btnAgua.innerHTML : '';
+        }
+        if (data.Pressao)  set('st-pressao', data.Pressao);
+        if (data.Lamina != null)  set('st-lamina', data.Lamina + ' mm');
+        if (data.Posicao_atual != null) {
+            set('st-posicao', data.Posicao_atual + '°');
+            if (!editingFields.has('map-lat')) drawPivotOnMap();
+        }
+        if (data.Carreador != null) {
+            currentCarrier = parseFloat(data.Carreador) || 0;
+            set('st-carreador', data.Carreador);
+            if (!editingFields.has('cfg-carreador')) { const el = $('cfg-carreador'); if (el) el.value = data.Carreador; }
+        }
+        if (data.Rele_ativo != null) set('st-rele', data.Rele_ativo);
+        if (data.Tempo_de_volta_formatado) set('st-tempo-volta', data.Tempo_de_volta_formatado);
+        if (data.GPS_sincronizado != null) set('st-gps', data.GPS_sincronizado);
+        if (data.Ultima_atualizacao) set('st-ts', data.Ultima_atualizacao);
+        if (data.LoRa_conectado != null) set('st-lora', data.LoRa_conectado);
+        if (data.Parada_por_grau != null) {
+            set('st-sis-parada', data.Parada_por_grau);
+            const isActive = (data.Parada_por_grau || '').toUpperCase() === 'ATIVADA';
+            sisEnabled = isActive;
+            ['sis-toggle','sis2-toggle'].forEach(id => { const el = $(id); if (el) el.checked = isActive; });
+            ['sis-text','sis2-text'].forEach(id => { const el = $(id); if (el) el.textContent = isActive ? 'Ativado' : 'Desativado'; });
+        }
+        if (data.Grau_alvo != null) {
+            currentTargetDegree = parseFloat(data.Grau_alvo) || 0;
+            set('st-sis-grau', data.Grau_alvo + '°');
+            ['input-grau','input2-grau'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Grau_alvo).toFixed(1); });
+        }
+        if (data.Parado_por_grau != null) set('st-sis-parado', data.Parado_por_grau);
+        if (data.Tempo_estimado_parada != null) set('st-sis-tempo', data.Tempo_estimado_parada);
+        if (data.Programacao_ativa != null) {
+            const isOn = (data.Programacao_ativa || '').toUpperCase() === 'SIM';
+            set('st-prog-ativa', isOn ? 'SIM' : 'NÃO');
+            schedEnabled = isOn;
+            const tog = $('sched-toggle'); if (tog) tog.checked = isOn;
+            const txt = $('sched-text');   if (txt) txt.textContent = isOn ? 'Ativado' : 'Desativado';
+        }
+        if (data.Hora_inicio && data.Hora_fim) {
+            set('st-prog-horario', `${data.Hora_inicio} às ${data.Hora_fim}`);
+            const s = $('sched-start'); if (s && !editingFields.has('sched-start')) s.value = data.Hora_inicio;
+            const e = $('sched-end');   if (e && !editingFields.has('sched-end'))   e.value = data.Hora_fim;
+        }
+        if (data.Mascara_dias != null) {
+            lastSchedMask = parseInt(data.Mascara_dias);
+            set('st-prog-dias', maskToDayNames(lastSchedMask));
+            buildDaysGrid(lastSchedMask);
+        }
+        if (data.GPS_Latitude != null) {
+            const el = $('map-gps-lat'); if (el) el.value = parseFloat(data.GPS_Latitude).toFixed(6);
+        }
+        if (data.GPS_Longitude != null) {
+            const el = $('map-gps-lon'); if (el) el.value = parseFloat(data.GPS_Longitude).toFixed(6);
+        }
+
+        // Config fields (não sobrescrever se estiver editando)
+        const cfgMap = {
+            'Nome_do_equipamento': 'cfg-nome',
+            'Raio_do_pivo': 'cfg-raio',
+            'Vazao': 'cfg-vazao',
+            'Tempo_de_volta_100': 'cfg-tempo-volta',
+            'pressure_timeout': 'cfg-pressao-timeout',
+            'Tempo_de_pressao': 'cfg-pressao-timeout',
+        };
+        Object.entries(cfgMap).forEach(([key, fieldId]) => {
+            if (data[key] != null && !editingFields.has(fieldId)) {
+                const el = $(fieldId); if (el) el.value = data[key];
+            }
+        });
+
+        // Percentímetro e lâmina nos inputs
+        if (data.Percentimetro != null) {
+            ['input-pct','input2-pct'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Percentimetro).toFixed(1); });
+        }
+        if (data.Lamina != null) {
+            ['input-lamina','input2-lamina'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Lamina).toFixed(1); });
+        }
+    }
+
+    // ── PROTEÇÃO DE CAMPOS ────────────────────────────────
+    ['input-pct','input2-pct','input-lamina','input2-lamina','input-grau','input2-grau',
+     'cfg-nome','cfg-carreador','cfg-pressao-timeout','cfg-raio','cfg-vazao','cfg-tempo-volta',
+     'sched-start','sched-end','map-lat','map-lon','map-raio'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.addEventListener('focus', () => editingFields.add(id));
+        el.addEventListener('blur',  () => setTimeout(() => editingFields.delete(id), 100));
+    });
+
+    // ── COMANDOS BÁSICOS ──────────────────────────────────
+    function bindCmd(btnId, getCmdFn, getMsgFn, getDetailsFn) {
+        const btn = $(btnId);
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const cmd     = typeof getCmdFn === 'function' ? getCmdFn() : getCmdFn;
+            const msg     = typeof getMsgFn === 'function' ? getMsgFn() : getMsgFn;
+            const details = typeof getDetailsFn === 'function' ? getDetailsFn() : (getDetailsFn || {});
+            openModal(msg, details, () => { publish(T.COMMAND, cmd); showOk('Comando enviado!'); });
+        });
+    }
+
+    // Iniciar/Parar/Avanço/Reversão — duplicados entre aba Principal e Controle
+    [['btn-iniciar','btn2-iniciar'], ['btn-parar','btn2-parar'],
+     ['btn-avanco','btn2-avanco'],   ['btn-reversao','btn2-reversao'],
+     ['btn-agua','btn2-agua']].forEach(pair => {
+        const cmds = {
+            'btn-iniciar':'L',   'btn2-iniciar':'L',
+            'btn-parar':'D',     'btn2-parar':'D',
+            'btn-avanco':'A',    'btn2-avanco':'A',
+            'btn-reversao':'R',  'btn2-reversao':'R',
+        };
+        pair.forEach(id => {
+            const btn = $(id);
+            if (!btn) return;
+            btn.addEventListener('click', () => {
+                let cmd, msg, details;
+                if (id.includes('agua') || id.includes('agua')) {
+                    cmd = waterState ? 'B' : 'W';
+                    msg = waterState ? 'Deseja DESLIGAR a água?' : 'Deseja LIGAR a água?';
+                    details = { 'Ação': waterState ? 'Desligar água' : 'Ligar água', 'Estado atual': waterState ? 'LIGADA' : 'DESLIGADA' };
+                } else {
+                    const map_ = { 'btn-iniciar':'L','btn2-iniciar':'L','btn-parar':'D','btn2-parar':'D','btn-avanco':'A','btn2-avanco':'A','btn-reversao':'R','btn2-reversao':'R' };
+                    const labels = { 'L':'Iniciar sistema','D':'Parar sistema','A':'Mudar para Avanço','R':'Mudar para Reversão' };
+                    cmd = map_[id];
+                    msg = `Deseja executar: ${labels[cmd]}?`;
+                    details = { 'Comando': labels[cmd], 'Status atual': $('st-status') ? $('st-status').textContent : '---' };
+                }
+                openModal(msg, details, () => { publish(T.COMMAND, cmd); showOk('Comando enviado!'); });
+            });
+        });
+    });
+
+    // Set percentímetro
+    [['btn-set-pct','input-pct'], ['btn2-set-pct','input2-pct']].forEach(([btnId, inputId]) => {
+        const btn = $(btnId), inp = $(inputId);
+        if (!btn || !inp) return;
+        btn.addEventListener('click', () => {
+            const v = inp.value.trim();
+            if (!v || isNaN(v) || v < 0 || v > 100) { showErr('Percentímetro deve ser entre 0 e 100'); return; }
+            openModal('Definir PERCENTÍMETRO?', { 'Novo valor': v + '%', 'Valor atual': $('st-pct') ? $('st-pct').textContent : '---' },
+                () => { publish(T.COMMAND, `P:${v}`); showOk(`Percentímetro definido: ${v}%`); });
+        });
+    });
+
+    // Set lâmina
+    [['btn-set-lamina','input-lamina'], ['btn2-set-lamina','input2-lamina']].forEach(([btnId, inputId]) => {
+        const btn = $(btnId), inp = $(inputId);
+        if (!btn || !inp) return;
+        btn.addEventListener('click', () => {
+            const v = inp.value.trim();
+            if (!v || isNaN(v) || v < 0) { showErr('Lâmina inválida'); return; }
+            openModal('Definir LÂMINA DE ÁGUA?', { 'Novo valor': v + ' mm', 'Valor atual': $('st-lamina') ? $('st-lamina').textContent : '---' },
+                () => { publish(T.COMMAND, `S:${v}`); showOk(`Lâmina definida: ${v} mm`); });
+        });
+    });
+
+    // Set grau SIS
+    [['btn-set-grau','input-grau'], ['btn2-set-grau','input2-grau']].forEach(([btnId, inputId]) => {
+        const btn = $(btnId), inp = $(inputId);
+        if (!btn || !inp) return;
+        btn.addEventListener('click', () => {
+            const v = inp.value.trim();
+            if (!v || isNaN(v) || v < 0 || v > 359.9) { showErr('Grau deve ser entre 0 e 359.9'); return; }
+            openModal('Definir GRAU ALVO (SIS)?', { 'Novo grau': v + '°', 'Grau atual': $('st-sis-grau') ? $('st-sis-grau').textContent : '---' },
+                () => { publish(T.COMMAND, `G:${v}`); currentTargetDegree = parseFloat(v); drawPivotOnMap(); showOk(`Grau definido: ${v}°`); });
+        });
+    });
+
+    // Toggle SIS
+    ['sis-toggle','sis2-toggle'].forEach(id => {
+        const tog = $(id);
+        if (!tog) return;
+        tog.addEventListener('change', function(e) {
+            e.preventDefault();
+            const newState = this.checked;
+            this.checked = sisEnabled; // reverter até confirmação
+            openModal(`Deseja ${newState ? 'ATIVAR' : 'DESATIVAR'} o SIS?`,
+                { 'Grau alvo atual': currentTargetDegree + '°', 'Novo estado': newState ? 'Ativado' : 'Desativado' },
+                () => {
+                    sisEnabled = newState;
+                    ['sis-toggle','sis2-toggle'].forEach(i => { const el = $(i); if (el) el.checked = newState; });
+                    ['sis-text','sis2-text'].forEach(i => { const el = $(i); if (el) el.textContent = newState ? 'Ativado' : 'Desativado'; });
+                    publish(T.COMMAND, `Q:${newState ? 1 : 0}`);
+                    drawPivotOnMap();
+                    showOk(`SIS ${newState ? 'ativado' : 'desativado'}`);
+                });
+        });
+    });
+
+    // Toggle Programação (Ponta)
+    const schedTog = $('sched-toggle');
+    if (schedTog) {
+        schedTog.addEventListener('change', function(e) {
+            e.preventDefault();
+            const newState = this.checked;
+            this.checked = schedEnabled;
+            openModal(`Deseja ${newState ? 'ATIVAR' : 'DESATIVAR'} a programação?`,
+                { 'Horário': $('st-prog-horario') ? $('st-prog-horario').textContent : '---' },
+                () => {
+                    schedEnabled = newState;
+                    schedTog.checked = newState;
+                    const txt = $('sched-text'); if (txt) txt.textContent = newState ? 'Ativado' : 'Desativado';
+                    publish(T.COMMAND, `E:${newState ? 1 : 0}`);
+                    showOk(`Programação ${newState ? 'ativada' : 'desativada'}`);
+                });
+        });
+    }
+
+    // Enviar programação
+    const btnSched = $('btn-send-sched');
+    if (btnSched) {
+        btnSched.addEventListener('click', () => {
+            const start = $('sched-start').value;
+            const end   = $('sched-end').value;
+            const mask  = getDaysMask();
+            if (!start || !end) { showErr('Defina os horários'); return; }
+            if (!mask) { showErr('Selecione pelo menos um dia'); return; }
+            openModal('Enviar PROGRAMAÇÃO?', {
+                'Início': start, 'Parada': end,
+                'Dias': maskToDayNames(mask),
+                'Ativa': schedEnabled ? 'SIM' : 'NÃO'
+            }, () => {
+                publish(T.COMMAND, `I:${start.replace(':','')}`);
+                setTimeout(() => publish(T.COMMAND, `J:${end.replace(':','')}`), 100);
+                setTimeout(() => publish(T.COMMAND, `K:${mask}`), 200);
+                lastSchedMask = mask;
+                showOk('Programação enviada!');
+            });
+        });
+    }
+
+    // Enviar configurações
+    const btnConfig = $('btn-send-config');
+    if (btnConfig) {
+        btnConfig.addEventListener('click', () => {
+            const nome     = $('cfg-nome').value.trim();
+            const carread  = $('cfg-carreador').value.trim();
+            const timeout_ = $('cfg-pressao-timeout').value.trim();
+            const raio     = $('cfg-raio').value.trim();
+            const vazao    = $('cfg-vazao').value.trim();
+            const tVolta   = $('cfg-tempo-volta').value.trim();
+
+            const cfgObj = { timestamp: Date.now(), source: 'WebInterface' };
+            const details = {};
+            if (nome)     { cfgObj.equipment_name    = nome;             details['Nome']           = nome; }
+            if (timeout_) { cfgObj.pressure_timeout  = parseInt(timeout_); details['Tempo Pressão'] = timeout_ + ' seg'; }
+            if (raio)     { cfgObj.pivot_radius       = parseFloat(raio);  details['Raio']          = raio + ' m'; }
+            if (vazao)    { cfgObj.flow_rate          = parseFloat(vazao); details['Vazão']         = vazao + ' m³/h'; }
+            if (tVolta)   { cfgObj.base_rotation_time = parseFloat(tVolta); details['Tempo Volta']  = tVolta + ' h'; }
+            if (carread)  { details['Carreador'] = carread + '°'; }
+
+            if (Object.keys(details).length === 0) { showErr('Preencha pelo menos um campo'); return; }
+
+            openModal('Enviar CONFIGURAÇÕES?', details, () => {
+                if (carread) publish(T.COMMAND, `V:${carread}`);
+                if (Object.keys(cfgObj).length > 2) publish(T.CONFIG, JSON.stringify(cfgObj));
+                showOk('Configurações enviadas!');
+            });
+        });
+    }
+
+    // ── MQTT ─────────────────────────────────────────────
+    function connect() {
+        mqttClient = mqtt.connect('wss://mqtt.aguasanta.agr.br', {
+            clientId:       'AGS_Pivo_' + EQ.pivo_id + '_' + Math.random().toString(16).substr(2,6),
+            username:       'coas',
+            password:       'AguaSanta@452',
+            keepalive:      60,
+            clean:          true,
+            connectTimeout: 6000,
+            reconnectPeriod:3000
+        });
+
+        mqttClient.on('connect', () => {
+            setMqttStatus(true);
+            showOk('Broker MQTT conectado!');
+            [T.STATUS, T.ONLINE, T.CONFIG].forEach(tp => {
+                if (tp) mqttClient.subscribe(tp, { qos:1 }, err => { if (err) showErr('Erro ao subscrever: ' + tp); });
+            });
+            // Solicitar status imediatamente
+            setTimeout(() => { if (mqttOk) publish(T.COMMAND, 'STATUS'); }, 1000);
+        });
+
+        mqttClient.on('message', (topic, payload) => {
+            const msg = payload.toString();
+            lastMsg = Date.now();
+
+            if (topic === T.ONLINE) {
+                const isOnline = msg.toLowerCase() === 'online';
+                const isOffline = msg.toLowerCase() === 'offline';
+                if (isOnline && !devOk)  setDevStatus(true);
+                if (isOffline && devOk)  setDevStatus(false);
+                // Tentar JSON
+                if (!isOnline && !isOffline) {
+                    try { const d = JSON.parse(msg); if (d.hasOwnProperty('online')) setDevStatus(d.online); } catch(_) {}
+                }
+                return;
+            }
+
+            if (topic === T.STATUS) {
+                try { updateStatusDisplay(JSON.parse(msg)); }
+                catch(_) {}
+                return;
+            }
+
+            if (topic === T.CONFIG) {
+                try {
+                    const d = JSON.parse(msg);
+                    const cfgMap2 = { 'equipment_name':'cfg-nome', 'Nome_do_equipamento':'cfg-nome', 'pivot_radius':'cfg-raio', 'Raio_do_pivo':'cfg-raio', 'flow_rate':'cfg-vazao', 'Vazao':'cfg-vazao', 'base_rotation_time':'cfg-tempo-volta', 'Tempo_de_volta_100':'cfg-tempo-volta', 'pressure_timeout':'cfg-pressao-timeout', 'Tempo_de_pressao':'cfg-pressao-timeout' };
+                    Object.entries(d).forEach(([k,v]) => {
+                        const fid = cfgMap2[k];
+                        if (fid && !editingFields.has(fid)) { const el = $(fid); if (el) el.value = v; }
+                    });
+                } catch(_) {}
+                return;
+            }
+        });
+
+        mqttClient.on('reconnect', () => setMqttStatus(false));
+        mqttClient.on('close',     () => { setMqttStatus(false); setDevStatus(false); });
+        mqttClient.on('error', err => showErr('Erro MQTT: ' + err.message));
+    }
+
+    // ── INIT ─────────────────────────────────────────────
+    updateButtons();
+    if (typeof mqtt === 'undefined') { showErr('Biblioteca MQTT não carregada'); return; }
+
+    // Coordenadas do equipamento (se cadastradas)
+    if (EQ.lat && EQ.lng) {
+        $('map-lat').value = EQ.lat;
+        $('map-lon').value = EQ.lng;
+    }
+
+    setTimeout(connect, 600);
+});
+</script>
+</body>
+</html>
