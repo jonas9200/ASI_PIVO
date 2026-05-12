@@ -5,13 +5,13 @@
     "location": "Água Santa",
     "pivo_id": "AS1.PV33",
     "description": "",
-    "lat": null,
-    "lng": null,
+    "lat": -19.368124,
+    "lng": -47.346766,
     "topic_command": "ags/irrigation/AS1.PV33/command",
     "topic_status": "ags/irrigation/AS1.PV33/status",
     "topic_online": "ags/irrigation/AS1.PV33/online",
     "topic_config": "ags/irrigation/AS1.PV33/config",
     "createdAt": "2026-05-12T12:58:02.804Z",
-    "updatedAt": "2026-05-12T12:58:02.804Z"
+    "updatedAt": "2026-05-12T13:00:30.035Z"
   }
 ]
