@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGS Irrigação — Lista de Pivôs</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary:  #2e7d32;
+            --secondary:#00695c;
+            --accent:   #2196F3;
+            --success:  #4CAF50;
+            --warning:  #FFC107;
+            --danger:   #F44336;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+        body { background:linear-gradient(135deg,#1e3a8a,#1a2a6c,#0066cc); color:white; min-height:100vh; padding:20px; }
+        .container { max-width:1400px; margin:0 auto; background:rgba(0,0,0,0.7); border-radius:15px; padding:25px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+
+        header { text-align:center; margin-bottom:22px; padding-bottom:14px; border-bottom:2px solid var(--accent); }
+        h1 { font-size:2.5rem; color:var(--accent); margin-bottom:6px; }
+        .subtitle { font-size:1.1rem; opacity:.85; }
+
+        .mqtt-bar { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; font-size:.82rem; color:rgba(255,255,255,0.5); }
+        .mqtt-dot { width:8px; height:8px; border-radius:50%; background:var(--warning); flex-shrink:0; transition:all .3s; }
+        .mqtt-dot.ok  { background:var(--success); box-shadow:0 0 7px var(--success); animation:gpulse 2s infinite; }
+        .mqtt-dot.err { background:var(--danger);  box-shadow:0 0 7px var(--danger); }
+
+        @keyframes gpulse { 0%,100%{box-shadow:0 0 4px var(--success)} 50%{box-shadow:0 0 13px var(--success)} }
+        @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:.35} }
+        @keyframes pulse  { 0%{box-shadow:0 0 0 0 rgba(76,175,80,.7)} 70%{box-shadow:0 0 0 7px rgba(76,175,80,0)} 100%{box-shadow:0 0 0 0 rgba(76,175,80,0)} }
+
+        /* View bar */
+        .view-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid rgba(255,255,255,0.12); }
+        .view-title { display:flex; align-items:center; gap:10px; font-size:1.2rem; font-weight:700; color:var(--accent); }
+        .view-switch-btn { display:inline-flex; align-items:center; gap:8px; padding:9px 20px; background:var(--accent); border:none; border-radius:8px; color:white; font-size:.88rem; font-weight:700; cursor:pointer; transition:all .25s; box-shadow:0 3px 10px rgba(33,150,243,0.35); }
+        .view-switch-btn:hover { background:#1976D2; transform:translateY(-2px); }
+        .tab-pane { display:none; }
+        .tab-pane.active { display:block; }
+
+        /* Map */
+        #map { width:100%; height:520px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); z-index:1; }
+        .leaflet-popup-content-wrapper { background:#0e1828 !important; border:1px solid rgba(33,150,243,0.4) !important; border-radius:10px !important; color:white !important; box-shadow:0 8px 24px rgba(0,0,0,0.5) !important; }
+        .leaflet-popup-tip { background:#0e1828 !important; }
+        .leaflet-popup-content { margin:14px 16px !important; min-width:190px; }
+        .popup-name  { font-size:1rem; font-weight:700; color:#2196F3; margin-bottom:8px; }
+        .popup-row   { display:flex; justify-content:space-between; font-size:.82rem; padding:4px 0; border-bottom:1px dashed rgba(255,255,255,0.1); }
+        .popup-row:last-of-type { border-bottom:none; }
+        .popup-key   { color:rgba(255,255,255,0.55); font-weight:600; }
+        .popup-val   { color:#2196F3; font-weight:600; text-align:right; }
+        .popup-btn   { display:block; width:100%; margin-top:10px; padding:8px; background:#2196F3; border:none; border-radius:6px; color:white; font-weight:700; font-size:.82rem; cursor:pointer; text-align:center; transition:background .2s; }
+        .popup-btn:hover { background:#1976D2; }
+
+        .eq-marker { width:32px; height:32px; flex-shrink:0; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; font-size:.8rem; box-shadow:0 3px 10px rgba(0,0,0,0.5); transition:all .3s; }
+        .eq-marker.rodando-agua  { background:#1565c0; border-color:#2196F3; }
+        .eq-marker.rodando       { background:#2e7d32; border-color:#4CAF50; }
+        .eq-marker.parado        { background:#5d4037; border-color:#FF9800; }
+        .eq-marker.offline       { background:#b71c1c; border-color:#F44336; }
+        .eq-marker.waiting       { background:#555;    border-color:#aaa; }
+
+        .map-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:.8rem; color:rgba(255,255,255,0.6); padding:0 4px; }
+        .legend-item { display:flex; align-items:center; gap:7px; }
+        .legend-dot  { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+
+        /* Search */
+        .filter-bar { display:flex; margin-bottom:20px; }
+        .search-input { flex:1; padding:10px 14px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.2); border-radius:7px; color:white; font-size:.9rem; }
+        .search-input:focus { outline:none; border-color:var(--accent); }
+        .search-input::placeholder { color:rgba(255,255,255,0.38); }
+
+        /* Dashboard */
+        .dashboard { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:18px; }
+
+        /* Card */
+        .card { background:rgba(30,30,50,0.85); border-radius:10px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.3); border-left:4px solid rgba(255,255,255,0.2); transition:all .35s; cursor:pointer; }
+        .card:hover { transform:translateY(-4px); box-shadow:0 10px 24px rgba(0,0,0,0.45); }
+        .card.rodando-agua { border-left-color:#2196F3; }
+        .card.rodando      { border-left-color:var(--success); }
+        .card.parado       { border-left-color:var(--warning); }
+        .card.offline      { border-left-color:var(--danger); }
+
+        .card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:13px; gap:8px; }
+        .card-name   { font-size:1.2rem; font-weight:bold; color:var(--accent); display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+
+        /* Status badge */
+        .status-badge { display:inline-flex; align-items:center; gap:5px; border-radius:12px; padding:4px 11px; font-size:.7rem; font-weight:700; white-space:nowrap; flex-shrink:0; transition:all .35s; }
+        .status-badge.waiting       { background:rgba(255,179,0,0.14); border:1px solid rgba(255,179,0,0.38); color:var(--warning); }
+        .status-badge.rodando-agua  { background:rgba(33,150,243,0.18); border:1px solid var(--accent); color:var(--accent); }
+        .status-badge.rodando       { background:rgba(76,175,80,0.18); border:1px solid var(--success); color:var(--success); }
+        .status-badge.parado        { background:rgba(255,152,0,0.18); border:1px solid var(--warning); color:var(--warning); }
+        .status-badge.offline       { background:rgba(244,67,54,0.14); border:1px solid rgba(244,67,54,0.45); color:var(--danger); }
+        .badge-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+        .status-badge.waiting .badge-dot      { background:var(--warning); animation:blink 1.2s infinite; }
+        .status-badge.rodando-agua .badge-dot { background:var(--accent); animation:pulse 2s infinite; }
+        .status-badge.rodando .badge-dot      { background:var(--success); animation:pulse 2s infinite; }
+        .status-badge.parado .badge-dot       { background:var(--warning); }
+        .status-badge.offline .badge-dot      { background:var(--danger); }
+
+        .card-detail { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(255,255,255,0.11); font-size:.86rem; }
+        .card-detail:last-of-type { border-bottom:none; }
+        .detail-label { font-weight:600; color:rgba(255,255,255,0.65); }
+        .detail-value { color:var(--accent); text-align:right; }
+
+        .access-btn { width:100%; padding:11px; border:none; border-radius:7px; background:var(--accent); color:white; font-weight:bold; font-size:.92rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all .25s; }
+        .access-btn:hover { background:#1976D2; transform:translateY(-2px); }
+
+        .loading,.empty { grid-column:1/-1; text-align:center; padding:40px; opacity:.7; }
+        .empty i { font-size:3rem; display:block; margin-bottom:13px; }
+
+        @media (max-width:768px) {
+            h1 { font-size:2rem; }
+            .dashboard { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1><i class="fas fa-sync-alt"></i> AGS Irrigação (Pivôs)</h1>
+        <p class="subtitle">Lista de Pivôs Centrais — Status ao Vivo</p>
+    </header>
+
+    <div class="mqtt-bar">
+        <div class="mqtt-dot" id="mqtt-dot"></div>
+        <span id="mqtt-label">Conectando ao Servidor...</span>
+    </div>
+
+    <!-- ABA LISTA -->
+    <div class="tab-pane active" id="tab-lista">
+        <div class="view-bar">
+            <div class="view-title"><i class="fa-solid fa-list"></i> Lista de Pivôs</div>
+            <button class="view-switch-btn" onclick="switchTab('mapa')"><i class="fa-solid fa-map"></i></button>
+        </div>
+        <div class="filter-bar">
+            <input class="search-input" id="search" placeholder="🔍  Buscar por nome ou localização...">
+        </div>
+        <div class="dashboard" id="dashboard">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Carregando equipamentos...</div>
+        </div>
+    </div>
+
+    <!-- ABA MAPA -->
+    <div class="tab-pane" id="tab-mapa">
+        <div class="view-bar">
+            <div class="view-title"><i class="fa-solid fa-map"></i> Mapa dos Pivôs</div>
+            <button class="view-switch-btn" onclick="switchTab('lista')"><i class="fa-solid fa-list"></i></button>
+        </div>
+        <div id="map"></div>
+        <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#2196F3;border:2px solid #64B5F6"></div> Rodando com Água</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#4CAF50;border:2px solid #81C784"></div> Rodando</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FF9800;border:2px solid #FFB74D"></div> Parado</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#F44336;border:2px solid #E57373"></div> Offline</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#777;border:2px solid #aaa"></div> Aguardando</div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+<script>
+const BROKER    = 'wss://mqtt.aguasanta.agr.br';
+const MQTT_USER = 'coas';
+const MQTT_PASS = 'AguaSanta@452';
+
+let equipments = [];
+let mqttClient = null;
+const deviceStatus = {}; // 'waiting' | 'online' | 'offline'
+const pivotData    = {}; // JSON completo do último status
+
+function getStatusClass(pivoId) {
+    const st  = deviceStatus[pivoId] || 'waiting';
+    const dat = pivotData[pivoId];
+    if (st === 'offline')  return 'offline';
+    if (st === 'waiting')  return 'waiting';
+    if (!dat) return 'online';
+    const s = (dat.Status || '').toUpperCase();
+    if (s.includes('RODANDO COM ÁGUA') || s.includes('RODANDO COM AGUA') || s.includes('PROGRAMADO - RODANDO COM')) return 'rodando-agua';
+    if (s.includes('RODANDO'))  return 'rodando';
+    return 'parado';
+}
+
+function getStatusLabel(cls) {
+    const map = { 'waiting':'Aguardando...', 'online':'Online', 'offline':'Offline', 'rodando-agua':'Rodando c/ Água', 'rodando':'Rodando', 'parado':'Parado' };
+    return map[cls] || cls;
+}
+
+// ── MAP ──────────────────────────────────────────────────
+let map = null;
+const mapMarkers = {};
+
+function switchTab(name) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'mapa') initMap();
+}
+
+function initMap() {
+    if (map) { setTimeout(() => { map.invalidateSize(); updateAllMarkers(); }, 100); return; }
+    map = L.map('map');
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri', maxZoom:19
+    }).addTo(map);
+    equipments.forEach(eq => addMarker(eq));
+    const wc = equipments.filter(e => e.lat && e.lng);
+    if (wc.length === 1) map.setView([wc[0].lat, wc[0].lng], 15);
+    else if (wc.length > 1) map.fitBounds(L.latLngBounds(wc.map(e => [e.lat, e.lng])), { padding:[50,50], maxZoom:17 });
+    else map.setView([-15, -47], 5);
+    setTimeout(() => map.invalidateSize(), 200);
+}
+
+function makeIcon(eqId) {
+    const eq  = equipments.find(e => e.id === eqId);
+    const cls = getStatusClass(eq ? eq.pivo_id : '');
+    const name = eq ? eq.name : '';
+    const labelColor = { 'rodando-agua':'#64B5F6','rodando':'#81C784','parado':'#FFB74D','offline':'#EF9A9A','waiting':'#ccc','online':'#ccc' }[cls] || '#ccc';
+    return L.divIcon({
+        className:'',
+        html:`<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+            <div class="eq-marker ${cls}"><i class="fas fa-sync-alt" style="color:white;font-size:.75rem"></i></div>
+            <span style="background:rgba(0,0,0,0.72);color:${labelColor};font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.15)">${name}</span>
+        </div>`,
+        iconSize:null, iconAnchor:[16,16], popupAnchor:[0,-22]
+    });
+}
+
+function popupHTML(eq) {
+    const cls = getStatusClass(eq.pivo_id);
+    const dat = pivotData[eq.pivo_id] || {};
+    const stLabel = cls === 'offline' ? '<span style="color:#F44336;font-weight:700">● Offline</span>'
+                  : cls === 'waiting' ? '<span style="color:#FFC107;font-weight:700">● Aguardando</span>'
+                  : `<span style="color:#4CAF50;font-weight:700">● ${getStatusLabel(cls)}</span>`;
+    return `
+        <div class="popup-name"><i class="fas fa-sync-alt"></i> ${eq.name}</div>
+        <div class="popup-row"><span class="popup-key">Localização:</span><span class="popup-val">${eq.location || '—'}</span></div>
+        <div class="popup-row"><span class="popup-key">Status:</span><span class="popup-val">${stLabel}</span></div>
+        <div class="popup-row"><span class="popup-key">Percentímetro:</span><span class="popup-val">${dat.Percentimetro != null ? dat.Percentimetro + '%' : '---'}</span></div>
+        <div class="popup-row"><span class="popup-key">Posição:</span><span class="popup-val">${dat.Posicao_atual != null ? dat.Posicao_atual + '°' : '---'}</span></div>
+        <div class="popup-row"><span class="popup-key">Atualizado:</span><span class="popup-val" style="font-size:.77rem">${dat.Ultima_atualizacao || '---'}</span></div>
+        <button class="popup-btn" onclick="window.location.href='/painel?id=${eq.id}'"><i class="fas fa-tachometer-alt"></i> Acessar Painel</button>`;
+}
+
+function addMarker(eq) {
+    if (!eq.lat || !eq.lng || !map) return;
+    if (mapMarkers[eq.id]) { mapMarkers[eq.id].remove(); delete mapMarkers[eq.id]; }
+    const m = L.marker([eq.lat, eq.lng], { icon:makeIcon(eq.id) })
+        .bindPopup(popupHTML(eq), { maxWidth:280 })
+        .addTo(map);
+    mapMarkers[eq.id] = m;
+}
+
+function updateAllMarkers() {
+    if (!map) return;
+    equipments.forEach(eq => {
+        if (!eq.lat || !eq.lng) return;
+        const m = mapMarkers[eq.id];
+        if (!m) { addMarker(eq); return; }
+        m.setIcon(makeIcon(eq.id));
+        if (m.isPopupOpen()) m.setPopupContent(popupHTML(eq));
+    });
+}
+
+// ── MQTT ─────────────────────────────────────────────────
+function connectMQTT() {
+    mqttClient = mqtt.connect(BROKER, {
+        clientId:'AGS_PivoList_' + Math.random().toString(16).substr(2,8),
+        username:MQTT_USER, password:MQTT_PASS,
+        keepalive:60, clean:true, connectTimeout:6000, reconnectPeriod:4000
+    });
+    mqttClient.on('connect', () => { setMqttBar('ok','Servidor Online'); subscribeAll(); });
+    mqttClient.on('message', (topic, payload) => {
+        const msg = payload.toString().trim();
+
+        // Online/offline
+        const eqOnline = equipments.find(e => e.topic_online === topic);
+        if (eqOnline) {
+            const st = (msg.toLowerCase() === 'online') ? 'online' : 'offline';
+            deviceStatus[eqOnline.pivo_id] = st;
+            updateCardBadge(eqOnline.id);
+            updateAllMarkers();
+            return;
+        }
+
+        // Status JSON
+        const eqStatus = equipments.find(e => e.topic_status === topic);
+        if (eqStatus) {
+            try {
+                const data = JSON.parse(msg);
+                pivotData[eqStatus.pivo_id] = data;
+                if (deviceStatus[eqStatus.pivo_id] !== 'online') deviceStatus[eqStatus.pivo_id] = 'online';
+                updateCardFull(eqStatus.id);
+                const m = mapMarkers[eqStatus.id];
+                if (m) { m.setIcon(makeIcon(eqStatus.id)); if (m.isPopupOpen()) m.setPopupContent(popupHTML(eqStatus)); }
+            } catch(_) {}
+        }
+    });
+    mqttClient.on('reconnect', () => setMqttBar('warn','Reconectando...'));
+    mqttClient.on('close',     () => setMqttBar('err', 'Servidor desconectado'));
+    mqttClient.on('error',     () => setMqttBar('err', 'Erro na conexão'));
+}
+
+function subscribeAll() {
+    equipments.forEach(eq => {
+        if (eq.topic_online) mqttClient.subscribe(eq.topic_online, { qos:1 });
+        if (eq.topic_status) mqttClient.subscribe(eq.topic_status, { qos:1 });
+    });
+}
+
+function setMqttBar(state, label) {
+    const dot = document.getElementById('mqtt-dot');
+    dot.className = 'mqtt-dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+    document.getElementById('mqtt-label').textContent = label;
+}
+
+function updateCardBadge(eqId) {
+    const eq   = equipments.find(e => e.id === eqId);
+    const card  = document.querySelector(`.card[data-eq-id="${eqId}"]`);
+    const badge = card && card.querySelector('.status-badge');
+    if (!card || !badge || !eq) return;
+    const cls   = getStatusClass(eq.pivo_id);
+    const label = getStatusLabel(cls);
+    card.className = `card ${cls}`;
+    badge.className = `status-badge ${cls}`;
+    badge.innerHTML = `<span class="badge-dot"></span>${label}`;
+}
+
+function updateCardFull(eqId) {
+    const eq  = equipments.find(e => e.id === eqId);
+    const card = document.querySelector(`.card[data-eq-id="${eqId}"]`);
+    if (!card || !eq) return;
+    const dat = pivotData[eq.pivo_id] || {};
+    updateCardBadge(eqId);
+    const set = (sel, val, color) => {
+        const el = card.querySelector(sel);
+        if (el) { el.textContent = val; if (color) el.style.color = color; }
+    };
+    const statusUpper = (dat.Status || '').toUpperCase();
+    const cls = getStatusClass(eq.pivo_id);
+    const statusColor = cls === 'rodando-agua' ? '#2196F3' : cls === 'rodando' ? '#4CAF50' : cls === 'parado' ? '#FF9800' : 'rgba(255,255,255,0.6)';
+    set('.pv-status',   dat.Status || '---', statusColor);
+    set('.pv-pct',      dat.Percentimetro != null ? dat.Percentimetro + '%' : '---');
+    set('.pv-agua',     dat.Agua || '---', dat.Agua === 'LIGADA' ? '#2196F3' : '#ccc');
+    set('.pv-posicao',  dat.Posicao_atual != null ? dat.Posicao_atual + '°' : '---');
+    set('.pv-ts',       dat.Ultima_atualizacao || '---');
+}
+
+// ── LOAD & RENDER ─────────────────────────────────────────
+async function load() {
+    try {
+        const r = await fetch('/api/equipments');
+        equipments = (await r.json()).sort((a,b) => a.name.localeCompare(b.name,'pt-BR'));
+        equipments.forEach(eq => {
+            if (!deviceStatus[eq.pivo_id]) deviceStatus[eq.pivo_id] = 'waiting';
+        });
+        render();
+        if (map) updateAllMarkers();
+        if (mqttClient && mqttClient.connected) subscribeAll();
+    } catch(e) {
+        document.getElementById('dashboard').innerHTML = '<div class="empty"><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar.</p></div>';
+    }
+}
+
+function render() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const dash   = document.getElementById('dashboard');
+    dash.innerHTML = '';
+    const filtered = equipments.filter(eq =>
+        !search || eq.name.toLowerCase().includes(search) || (eq.location||'').toLowerCase().includes(search) || eq.pivo_id.toLowerCase().includes(search)
+    );
+    if (filtered.length === 0) {
+        dash.innerHTML = '<div class="empty"><i class="fas fa-search"></i><p>Nenhum pivô encontrado.</p></div>';
+        return;
+    }
+    filtered.forEach(eq => {
+        const cls   = getStatusClass(eq.pivo_id);
+        const label = getStatusLabel(cls);
+        const dat   = pivotData[eq.pivo_id] || {};
+        const statusUpper = (dat.Status || '').toUpperCase();
+        const statusCls   = cls;
+        const statusColor = cls === 'rodando-agua' ? '#2196F3' : cls === 'rodando' ? '#4CAF50' : cls === 'parado' ? '#FF9800' : 'rgba(255,255,255,0.6)';
+
+        const card = document.createElement('div');
+        card.className = `card ${cls}`;
+        card.dataset.eqId = eq.id;
+        card.innerHTML = `
+            <div class="card-header">
+                <div class="card-name"><i class="fas fa-sync-alt"></i> ${eq.name}</div>
+                <div class="status-badge ${cls}"><span class="badge-dot"></span>${label}</div>
+            </div>
+            <div class="card-detail"><span class="detail-label">Localização:</span><span class="detail-value">${eq.location||'—'}</span></div>
+            <div class="card-detail"><span class="detail-label">Status:</span><span class="detail-value pv-status" style="color:${statusColor};font-weight:700">${dat.Status||'---'}</span></div>
+            <div class="card-detail"><span class="detail-label">Percentímetro:</span><span class="detail-value pv-pct">${dat.Percentimetro!=null?dat.Percentimetro+'%':'---'}</span></div>
+            <div class="card-detail"><span class="detail-label">Água:</span><span class="detail-value pv-agua" style="color:${dat.Agua==='LIGADA'?'#2196F3':'rgba(255,255,255,0.6)'}">${dat.Agua||'---'}</span></div>
+            <div class="card-detail"><span class="detail-label">Posição:</span><span class="detail-value pv-posicao">${dat.Posicao_atual!=null?dat.Posicao_atual+'°':'---'}</span></div>
+            <div class="card-detail"><span class="detail-label">Última Atualização:</span><span class="detail-value pv-ts" style="font-size:.78rem">${dat.Ultima_atualizacao||'---'}</span></div>
+            ${eq.description?`<div class="card-detail"><span class="detail-label">Descrição</span><span class="detail-value">${eq.description}</span></div>`:''}
+            <div class="card-footer" style="margin-top:12px">
+                <button class="access-btn"><i class="fas fa-tachometer-alt"></i> Acessar Painel</button>
+            </div>`;
+        const open = () => { window.location.href = `/painel?id=${eq.id}`; };
+        card.querySelector('.access-btn').onclick = open;
+        card.onclick = e => { if (!e.target.closest('.access-btn')) open(); };
+        dash.appendChild(card);
+    });
+}
+
+document.getElementById('search').oninput = render;
+
+load().then(() => {
+    if (typeof mqtt !== 'undefined') connectMQTT();
+    else setMqttBar('err','Biblioteca MQTT não carregada');
+});
+setInterval(load, 30000);
+</script>
+</body>
+</html>
