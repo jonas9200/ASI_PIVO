@@ -158,7 +158,6 @@
     <!-- TABS -->
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="principal"><i class="fas fa-home"></i> Principal</button>
-        <button class="tab-btn" data-tab="controle"><i class="fas fa-cogs"></i> Controle</button>
         <button class="tab-btn" data-tab="programacao"><i class="fas fa-clock"></i> Programação</button>
         <button class="tab-btn" data-tab="config"><i class="fas fa-wrench"></i> Configurações</button>
         <button class="tab-btn" data-tab="mapa"><i class="fas fa-map"></i> Mapa</button>
@@ -186,9 +185,9 @@
                 <div class="status-value"><span class="status-label">Última Atualização:</span><span class="status-data" id="st-ts">--/--/---- --:--:--</span></div>
             </div>
 
-            <!-- Controle rápido -->
+            <!-- Controle -->
             <div class="card">
-                <h2><i class="fas fa-sliders-h"></i> Controle Rápido</h2>
+                <h2><i class="fas fa-sliders-h"></i> Controle</h2>
                 <div class="control-buttons">
                     <button class="btn-success" id="btn-iniciar"  disabled><i class="fas fa-play"></i>  Iniciar</button>
                     <button class="btn-danger"  id="btn-parar"    disabled><i class="fas fa-stop"></i>  Parar</button>
@@ -238,48 +237,6 @@
                 <div class="status-value"><span class="status-label">Dias:</span><span class="status-data" id="st-prog-dias">Nenhum</span></div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- ===== ABA CONTROLE ===== -->
-    <div class="tab-content" id="controle">
-        <div class="dashboard">
-            <div class="card">
-                <h2><i class="fas fa-cogs"></i> Controle Completo</h2>
-                <div class="control-buttons">
-                    <button class="btn-success" id="btn2-iniciar"  disabled><i class="fas fa-play"></i>  Iniciar</button>
-                    <button class="btn-danger"  id="btn2-parar"    disabled><i class="fas fa-stop"></i>  Parar</button>
-                    <button class="btn-warning" id="btn2-avanco"   disabled><i class="fas fa-rotate-right"></i> Avanço</button>
-                    <button class="btn-warning" id="btn2-reversao" disabled><i class="fas fa-rotate-left"></i>  Reversão</button>
-                </div>
-                <button class="btn-info" id="btn2-agua" disabled><i class="fas fa-tint"></i> Água</button>
-
-                <div class="form-group" style="margin-top:16px">
-                    <label for="input2-pct">Percentímetro (0-100)%</label>
-                    <input type="number" id="input2-pct" min="0" max="100" step="0.1" placeholder="Ex: 75">
-                    <button class="btn-info" id="btn2-set-pct" disabled><i class="fas fa-percentage"></i> Definir Percentímetro</button>
-                </div>
-
-                <div class="form-group">
-                    <label for="input2-lamina">Lâmina de Água (mm)</label>
-                    <input type="number" id="input2-lamina" step="0.1" min="0" placeholder="Ex: 10.5">
-                    <button class="btn-info" id="btn2-set-lamina" disabled><i class="fas fa-ruler"></i> Definir Lâmina</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2><i class="fas fa-bullseye"></i> SIS — Parada por Grau</h2>
-                <div class="switch-row">
-                    <label class="switch"><input type="checkbox" id="sis2-toggle"><span class="slider"></span></label>
-                    <span class="switch-label">Ativar SIS</span>
-                    <span id="sis2-text" style="color:rgba(255,255,255,0.5);font-size:.85rem">Desativado</span>
-                </div>
-                <div class="form-group">
-                    <label for="input2-grau">Grau Alvo (0–359.9)</label>
-                    <input type="number" id="input2-grau" min="0" max="359.9" step="0.1" placeholder="Ex: 180.0">
-                    <button class="btn-info" id="btn2-set-grau" disabled><i class="fas fa-bullseye"></i> Definir Grau</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -487,8 +444,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     const ALL_BTNS = [
         'btn-iniciar','btn-parar','btn-avanco','btn-reversao','btn-agua',
         'btn-set-pct','btn-set-lamina','btn-set-grau',
-        'btn2-iniciar','btn2-parar','btn2-avanco','btn2-reversao','btn2-agua',
-        'btn2-set-pct','btn2-set-lamina','btn2-set-grau',
         'btn-send-sched','btn-send-config'
     ];
     function updateButtons() {
@@ -673,9 +628,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             set('st-agua', data.Agua);
             waterState = (data.Agua || '').toUpperCase() === 'LIGADA';
             const btnAgua = $('btn-agua');
-            const btn2Agua = $('btn2-agua');
-            if (btnAgua)  btnAgua.innerHTML  = waterState ? '<i class="fas fa-tint"></i> Água (Ligar/Desligar)' : '<i class="fas fa-tint-slash"></i> Água (Ligar/Desligar)';
-            if (btn2Agua) btn2Agua.innerHTML = btnAgua ? btnAgua.innerHTML : '';
+            if (btnAgua) btnAgua.innerHTML = waterState ? '<i class="fas fa-tint"></i> Água (Ligar/Desligar)' : '<i class="fas fa-tint-slash"></i> Água (Ligar/Desligar)';
         }
         if (data.Pressao)  set('st-pressao', data.Pressao);
         if (data.Lamina != null)  set('st-lamina', data.Lamina + ' mm');
@@ -697,13 +650,16 @@ document.addEventListener('DOMContentLoaded', async function () {
             set('st-sis-parada', data.Parada_por_grau);
             const isActive = (data.Parada_por_grau || '').toUpperCase() === 'ATIVADA';
             sisEnabled = isActive;
-            ['sis-toggle','sis2-toggle'].forEach(id => { const el = $(id); if (el) el.checked = isActive; });
-            ['sis-text','sis2-text'].forEach(id => { const el = $(id); if (el) el.textContent = isActive ? 'Ativado' : 'Desativado'; });
+            const sisToggle = $('sis-toggle');
+            if (sisToggle) sisToggle.checked = isActive;
+            const sisText = $('sis-text');
+            if (sisText) sisText.textContent = isActive ? 'Ativado' : 'Desativado';
         }
         if (data.Grau_alvo != null) {
             currentTargetDegree = parseFloat(data.Grau_alvo) || 0;
             set('st-sis-grau', data.Grau_alvo + '°');
-            ['input-grau','input2-grau'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Grau_alvo).toFixed(1); });
+            const inputGrau = $('input-grau');
+            if (inputGrau && !editingFields.has('input-grau')) inputGrau.value = parseFloat(data.Grau_alvo).toFixed(1);
         }
         if (data.Parado_por_grau != null) set('st-sis-parado', data.Parado_por_grau);
         if (data.Tempo_estimado_parada != null) set('st-sis-tempo', data.Tempo_estimado_parada);
@@ -731,7 +687,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             const el = $('map-gps-lon'); if (el) el.value = parseFloat(data.GPS_Longitude).toFixed(6);
         }
 
-        // Config fields (não sobrescrever se estiver editando)
+        // Config fields
         const cfgMap = {
             'Nome_do_equipamento': 'cfg-nome',
             'Raio_do_pivo': 'cfg-raio',
@@ -746,17 +702,18 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
         });
 
-        // Percentímetro e lâmina nos inputs
         if (data.Percentimetro != null) {
-            ['input-pct','input2-pct'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Percentimetro).toFixed(1); });
+            const inputPct = $('input-pct');
+            if (inputPct && !editingFields.has('input-pct')) inputPct.value = parseFloat(data.Percentimetro).toFixed(1);
         }
         if (data.Lamina != null) {
-            ['input-lamina','input2-lamina'].forEach(id => { const el = $(id); if (el && !editingFields.has(id)) el.value = parseFloat(data.Lamina).toFixed(1); });
+            const inputLamina = $('input-lamina');
+            if (inputLamina && !editingFields.has('input-lamina')) inputLamina.value = parseFloat(data.Lamina).toFixed(1);
         }
     }
 
     // ── PROTEÇÃO DE CAMPOS ────────────────────────────────
-    ['input-pct','input2-pct','input-lamina','input2-lamina','input-grau','input2-grau',
+    ['input-pct','input-lamina','input-grau',
      'cfg-nome','cfg-carreador','cfg-pressao-timeout','cfg-raio','cfg-vazao','cfg-tempo-volta',
      'sched-start','sched-end','map-lat','map-lon','map-raio'].forEach(id => {
         const el = $(id);
@@ -765,105 +722,79 @@ document.addEventListener('DOMContentLoaded', async function () {
         el.addEventListener('blur',  () => setTimeout(() => editingFields.delete(id), 100));
     });
 
-    // ── COMANDOS BÁSICOS ──────────────────────────────────
-    function bindCmd(btnId, getCmdFn, getMsgFn, getDetailsFn) {
-        const btn = $(btnId);
+    // ── COMANDOS DE CONTROLE ──────────────────────────────
+    ['btn-iniciar','btn-parar','btn-avanco','btn-reversao','btn-agua'].forEach(id => {
+        const btn = $(id);
         if (!btn) return;
         btn.addEventListener('click', () => {
-            const cmd     = typeof getCmdFn === 'function' ? getCmdFn() : getCmdFn;
-            const msg     = typeof getMsgFn === 'function' ? getMsgFn() : getMsgFn;
-            const details = typeof getDetailsFn === 'function' ? getDetailsFn() : (getDetailsFn || {});
+            let cmd, msg, details;
+            if (id === 'btn-agua') {
+                cmd = waterState ? 'B' : 'W';
+                msg = waterState ? 'Deseja DESLIGAR a água?' : 'Deseja LIGAR a água?';
+                details = { 'Ação': waterState ? 'Desligar água' : 'Ligar água', 'Estado atual': waterState ? 'LIGADA' : 'DESLIGADA' };
+            } else {
+                const map_ = { 'btn-iniciar':'L','btn-parar':'D','btn-avanco':'A','btn-reversao':'R' };
+                const labels = { 'L':'Iniciar sistema','D':'Parar sistema','A':'Mudar para Avanço','R':'Mudar para Reversão' };
+                cmd = map_[id];
+                msg = `Deseja executar: ${labels[cmd]}?`;
+                details = { 'Comando': labels[cmd], 'Status atual': $('st-status') ? $('st-status').textContent : '---' };
+            }
             openModal(msg, details, () => { publish(T.COMMAND, cmd); showOk('Comando enviado!'); });
-        });
-    }
-
-    // Iniciar/Parar/Avanço/Reversão — duplicados entre aba Principal e Controle
-    [['btn-iniciar','btn2-iniciar'], ['btn-parar','btn2-parar'],
-     ['btn-avanco','btn2-avanco'],   ['btn-reversao','btn2-reversao'],
-     ['btn-agua','btn2-agua']].forEach(pair => {
-        const cmds = {
-            'btn-iniciar':'L',   'btn2-iniciar':'L',
-            'btn-parar':'D',     'btn2-parar':'D',
-            'btn-avanco':'A',    'btn2-avanco':'A',
-            'btn-reversao':'R',  'btn2-reversao':'R',
-        };
-        pair.forEach(id => {
-            const btn = $(id);
-            if (!btn) return;
-            btn.addEventListener('click', () => {
-                let cmd, msg, details;
-                if (id.includes('agua') || id.includes('agua')) {
-                    cmd = waterState ? 'B' : 'W';
-                    msg = waterState ? 'Deseja DESLIGAR a água?' : 'Deseja LIGAR a água?';
-                    details = { 'Ação': waterState ? 'Desligar água' : 'Ligar água', 'Estado atual': waterState ? 'LIGADA' : 'DESLIGADA' };
-                } else {
-                    const map_ = { 'btn-iniciar':'L','btn2-iniciar':'L','btn-parar':'D','btn2-parar':'D','btn-avanco':'A','btn2-avanco':'A','btn-reversao':'R','btn2-reversao':'R' };
-                    const labels = { 'L':'Iniciar sistema','D':'Parar sistema','A':'Mudar para Avanço','R':'Mudar para Reversão' };
-                    cmd = map_[id];
-                    msg = `Deseja executar: ${labels[cmd]}?`;
-                    details = { 'Comando': labels[cmd], 'Status atual': $('st-status') ? $('st-status').textContent : '---' };
-                }
-                openModal(msg, details, () => { publish(T.COMMAND, cmd); showOk('Comando enviado!'); });
-            });
         });
     });
 
     // Set percentímetro
-    [['btn-set-pct','input-pct'], ['btn2-set-pct','input2-pct']].forEach(([btnId, inputId]) => {
-        const btn = $(btnId), inp = $(inputId);
-        if (!btn || !inp) return;
-        btn.addEventListener('click', () => {
-            const v = inp.value.trim();
+    const btnPct = $('btn-set-pct'), inpPct = $('input-pct');
+    if (btnPct && inpPct) {
+        btnPct.addEventListener('click', () => {
+            const v = inpPct.value.trim();
             if (!v || isNaN(v) || v < 0 || v > 100) { showErr('Percentímetro deve ser entre 0 e 100'); return; }
             openModal('Definir PERCENTÍMETRO?', { 'Novo valor': v + '%', 'Valor atual': $('st-pct') ? $('st-pct').textContent : '---' },
                 () => { publish(T.COMMAND, `P:${v}`); showOk(`Percentímetro definido: ${v}%`); });
         });
-    });
+    }
 
     // Set lâmina
-    [['btn-set-lamina','input-lamina'], ['btn2-set-lamina','input2-lamina']].forEach(([btnId, inputId]) => {
-        const btn = $(btnId), inp = $(inputId);
-        if (!btn || !inp) return;
-        btn.addEventListener('click', () => {
-            const v = inp.value.trim();
+    const btnLamina = $('btn-set-lamina'), inpLamina = $('input-lamina');
+    if (btnLamina && inpLamina) {
+        btnLamina.addEventListener('click', () => {
+            const v = inpLamina.value.trim();
             if (!v || isNaN(v) || v < 0) { showErr('Lâmina inválida'); return; }
             openModal('Definir LÂMINA DE ÁGUA?', { 'Novo valor': v + ' mm', 'Valor atual': $('st-lamina') ? $('st-lamina').textContent : '---' },
                 () => { publish(T.COMMAND, `S:${v}`); showOk(`Lâmina definida: ${v} mm`); });
         });
-    });
+    }
 
     // Set grau SIS
-    [['btn-set-grau','input-grau'], ['btn2-set-grau','input2-grau']].forEach(([btnId, inputId]) => {
-        const btn = $(btnId), inp = $(inputId);
-        if (!btn || !inp) return;
-        btn.addEventListener('click', () => {
-            const v = inp.value.trim();
+    const btnGrau = $('btn-set-grau'), inpGrau = $('input-grau');
+    if (btnGrau && inpGrau) {
+        btnGrau.addEventListener('click', () => {
+            const v = inpGrau.value.trim();
             if (!v || isNaN(v) || v < 0 || v > 359.9) { showErr('Grau deve ser entre 0 e 359.9'); return; }
             openModal('Definir GRAU ALVO (SIS)?', { 'Novo grau': v + '°', 'Grau atual': $('st-sis-grau') ? $('st-sis-grau').textContent : '---' },
                 () => { publish(T.COMMAND, `G:${v}`); currentTargetDegree = parseFloat(v); drawPivotOnMap(); showOk(`Grau definido: ${v}°`); });
         });
-    });
+    }
 
     // Toggle SIS
-    ['sis-toggle','sis2-toggle'].forEach(id => {
-        const tog = $(id);
-        if (!tog) return;
-        tog.addEventListener('change', function(e) {
+    const sisToggle = $('sis-toggle');
+    if (sisToggle) {
+        sisToggle.addEventListener('change', function(e) {
             e.preventDefault();
             const newState = this.checked;
-            this.checked = sisEnabled; // reverter até confirmação
+            this.checked = sisEnabled;
             openModal(`Deseja ${newState ? 'ATIVAR' : 'DESATIVAR'} o SIS?`,
                 { 'Grau alvo atual': currentTargetDegree + '°', 'Novo estado': newState ? 'Ativado' : 'Desativado' },
                 () => {
                     sisEnabled = newState;
-                    ['sis-toggle','sis2-toggle'].forEach(i => { const el = $(i); if (el) el.checked = newState; });
-                    ['sis-text','sis2-text'].forEach(i => { const el = $(i); if (el) el.textContent = newState ? 'Ativado' : 'Desativado'; });
+                    sisToggle.checked = newState;
+                    const sisText = $('sis-text'); if (sisText) sisText.textContent = newState ? 'Ativado' : 'Desativado';
                     publish(T.COMMAND, `Q:${newState ? 1 : 0}`);
                     drawPivotOnMap();
                     showOk(`SIS ${newState ? 'ativado' : 'desativado'}`);
                 });
         });
-    });
+    }
 
     // Toggle Programação (Ponta)
     const schedTog = $('sched-toggle');
@@ -920,11 +851,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             const cfgObj = { timestamp: Date.now(), source: 'WebInterface' };
             const details = {};
-            if (nome)     { cfgObj.equipment_name    = nome;             details['Nome']           = nome; }
-            if (timeout_) { cfgObj.pressure_timeout  = parseInt(timeout_); details['Tempo Pressão'] = timeout_ + ' seg'; }
-            if (raio)     { cfgObj.pivot_radius       = parseFloat(raio);  details['Raio']          = raio + ' m'; }
-            if (vazao)    { cfgObj.flow_rate          = parseFloat(vazao); details['Vazão']         = vazao + ' m³/h'; }
-            if (tVolta)   { cfgObj.base_rotation_time = parseFloat(tVolta); details['Tempo Volta']  = tVolta + ' h'; }
+            if (nome)     { cfgObj.equipment_name    = nome;               details['Nome']           = nome; }
+            if (timeout_) { cfgObj.pressure_timeout  = parseInt(timeout_); details['Tempo Pressão']  = timeout_ + ' seg'; }
+            if (raio)     { cfgObj.pivot_radius       = parseFloat(raio);  details['Raio']           = raio + ' m'; }
+            if (vazao)    { cfgObj.flow_rate          = parseFloat(vazao); details['Vazão']          = vazao + ' m³/h'; }
+            if (tVolta)   { cfgObj.base_rotation_time = parseFloat(tVolta); details['Tempo Volta']   = tVolta + ' h'; }
             if (carread)  { details['Carreador'] = carread + '°'; }
 
             if (Object.keys(details).length === 0) { showErr('Preencha pelo menos um campo'); return; }
@@ -955,7 +886,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             [T.STATUS, T.ONLINE, T.CONFIG].forEach(tp => {
                 if (tp) mqttClient.subscribe(tp, { qos:1 }, err => { if (err) showErr('Erro ao subscrever: ' + tp); });
             });
-            // Solicitar status imediatamente
             setTimeout(() => { if (mqttOk) publish(T.COMMAND, 'STATUS'); }, 1000);
         });
 
@@ -964,11 +894,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             lastMsg = Date.now();
 
             if (topic === T.ONLINE) {
-                const isOnline = msg.toLowerCase() === 'online';
+                const isOnline  = msg.toLowerCase() === 'online';
                 const isOffline = msg.toLowerCase() === 'offline';
-                if (isOnline && !devOk)  setDevStatus(true);
+                if (isOnline  && !devOk) setDevStatus(true);
                 if (isOffline && devOk)  setDevStatus(false);
-                // Tentar JSON
                 if (!isOnline && !isOffline) {
                     try { const d = JSON.parse(msg); if (d.hasOwnProperty('online')) setDevStatus(d.online); } catch(_) {}
                 }
@@ -976,15 +905,20 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             if (topic === T.STATUS) {
-                try { updateStatusDisplay(JSON.parse(msg)); }
-                catch(_) {}
+                try { updateStatusDisplay(JSON.parse(msg)); } catch(_) {}
                 return;
             }
 
             if (topic === T.CONFIG) {
                 try {
                     const d = JSON.parse(msg);
-                    const cfgMap2 = { 'equipment_name':'cfg-nome', 'Nome_do_equipamento':'cfg-nome', 'pivot_radius':'cfg-raio', 'Raio_do_pivo':'cfg-raio', 'flow_rate':'cfg-vazao', 'Vazao':'cfg-vazao', 'base_rotation_time':'cfg-tempo-volta', 'Tempo_de_volta_100':'cfg-tempo-volta', 'pressure_timeout':'cfg-pressao-timeout', 'Tempo_de_pressao':'cfg-pressao-timeout' };
+                    const cfgMap2 = {
+                        'equipment_name':'cfg-nome', 'Nome_do_equipamento':'cfg-nome',
+                        'pivot_radius':'cfg-raio',   'Raio_do_pivo':'cfg-raio',
+                        'flow_rate':'cfg-vazao',     'Vazao':'cfg-vazao',
+                        'base_rotation_time':'cfg-tempo-volta', 'Tempo_de_volta_100':'cfg-tempo-volta',
+                        'pressure_timeout':'cfg-pressao-timeout', 'Tempo_de_pressao':'cfg-pressao-timeout'
+                    };
                     Object.entries(d).forEach(([k,v]) => {
                         const fid = cfgMap2[k];
                         if (fid && !editingFields.has(fid)) { const el = $(fid); if (el) el.value = v; }
@@ -1003,7 +937,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     updateButtons();
     if (typeof mqtt === 'undefined') { showErr('Biblioteca MQTT não carregada'); return; }
 
-    // Coordenadas do equipamento (se cadastradas)
     if (EQ.lat && EQ.lng) {
         $('map-lat').value = EQ.lat;
         $('map-lon').value = EQ.lng;
